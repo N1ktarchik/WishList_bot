@@ -32,31 +32,3 @@ func ButtonProcessing(update tgbot.Update, bot *tgbot.BotAPI, msg tgbot.Callback
 	}
 
 }
-
-// func ChoiseToMyWishListProcessing(choise string, update tgbot.Update, bot *tgbot.BotAPI) {
-
-// 	switch choise {
-// 	case "➕ Add new wish":
-// 		//обработка через БД
-
-// 	case "❌ Delete wish":
-// 		//обработка через БД
-
-// 	case "✏️ Change wish":
-// 		//обработка через БД
-
-// 	case "➡️ Next wish":
-// 		//обработка через БД
-// 		//Обдумать архитектуру
-
-// 	case "🔙 Exit to main menu":
-// 		keyboard.Menu(update, bot)
-// 		return
-
-// 	default:
-// 		msg := tgbot.NewMessage(update.Message.Chat.ID, "The command is not recognized. Select the command on the keyboard 👇")
-// 		bot.Send(msg)
-// 		keyboard.SentKeyboard(bot, true, update.Message.Chat.ID)
-
-// 	}
-// }
