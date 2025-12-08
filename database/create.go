@@ -19,7 +19,7 @@ func ConnectToDB() (*sql.DB, error) {
 	}
 	connStr := os.Getenv("CONNSTR")
 	if connStr == "" {
-		return nil, errors.New("connStrt reading error")
+		return nil, errors.New("connStr reading error")
 	}
 
 	db, err := sql.Open("postgres", connStr)
