@@ -8,25 +8,6 @@ import (
 	"time"
 )
 
-type commands interface {
-	AddToDB(db *sql.DB) error
-}
-
-type User struct {
-	ChatID    int64
-	UserName  string
-	CreatedAt time.Time
-}
-
-type Wish struct {
-	ID                         int64
-	ChatIdLink                 int64
-	WishName, Description, Url string
-	Price                      float64
-	IsReserved                 bool
-	CreatedAt                  time.Time
-}
-
 func (u User) AddToDB(db *sql.DB) error {
 
 	if u.ChatID == 0 || u.UserName == "" {
@@ -54,7 +35,7 @@ func (u User) AddToDB(db *sql.DB) error {
 
 func (w *Wish) AddToDB(db *sql.DB) error {
 
-	if w.ChatIdLink == 0 || w.WishName == "" || w.Price < 0 {
+	if w.ChatIdLink == 0 || w.WishName == "" || w.Price <= 0 {
 		err := errors.New("data read error")
 		return err
 	}
@@ -107,7 +88,11 @@ func (w Wish) DeleteFromDB(db *sql.DB) error {
 		return err
 	}
 
-	rows, _ := result.RowsAffected() //RowsAfected сколько строк измененно
+	rows, err := result.RowsAffected() //RowsAfected сколько строк измененно
+	if err != nil {
+		return fmt.Errorf("error checking deletion: %w", err)
+	}
+
 	if rows == 0 {
 		err := errors.New("wish not found")
 		return err
@@ -148,4 +133,89 @@ func GetWishByID(id int64, db *sql.DB) (*Wish, error) {
 	}
 
 	return &wish, nil
+}
+
+func GetWishNavigation(currentWishID, chatID int64, db *sql.DB) (*WishNavigation, error) {
+	if currentWishID <= 0 || chatID <= 0 {
+		err := errors.New("ivalid ID")
+		return nil, err
+	}
+
+	query := `
+	SELECT MAX(CASE WHEN id<$2 THEN id END),
+		MIN(CASE WHEN id>$2 THEN id END)
+	FROM wishes WHERE user_id = $1`
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	var next, prev sql.NullInt64
+
+	err := db.QueryRowContext(ctx, query, chatID, currentWishID).Scan(&prev, &next)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New("wish or user not found")
+		}
+		return nil, fmt.Errorf("error reading data from DB: %w", err)
+	}
+
+	result := &WishNavigation{}
+
+	if next.Valid {
+		result.NextID = &next.Int64
+	}
+
+	if prev.Valid {
+		result.PrevID = &prev.Int64
+	}
+
+	return result, nil
+}
+
+func (w *Wish) UpdateWish(db *sql.DB) error {
+
+	if w.ChatIdLink == 0 || w.WishName == "" || w.Price <= 0 || w.ID <= 0 {
+		err := errors.New("data read error")
+		return err
+	}
+
+	query := `
+        UPDATE wishes SET name = $1, description = $2, link = $3, price = $4, is_reserved = $5 WHERE id = $6 `
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result, err := db.ExecContext(ctx, query,
+		w.WishName,
+		w.Description,
+		w.Url,
+		w.Price,
+		w.IsReserved,
+		w.ID,
+	)
+
+	if err != nil {
+
+		if ctx.Err() == context.DeadlineExceeded {
+			err := fmt.Errorf("delete by timeout. %w", err) //не кончился ли таймаут
+			return err
+		}
+
+		err := fmt.Errorf("error updating wish. %w", err)
+		return err
+	}
+
+	rows, err := result.RowsAffected() //RowsAfected сколько строк измененно
+	if err != nil {
+		return fmt.Errorf("error checking updating: %w", err)
+	}
+
+	if rows == 0 {
+		err := errors.New("wish not found")
+		return err
+	}
+
+	return nil
+
 }
