@@ -21,7 +21,7 @@ func Menu(chatID int64, bot *tgbot.BotAPI) {
 				tgbot.NewInlineKeyboardButtonURL("Help", "https://t.me/n1ktarchik"),
 			),
 			tgbot.NewInlineKeyboardRow(
-				tgbot.NewInlineKeyboardButtonURL("Support the author", "https://music.yandex.ru"), //запрос деняк (добавить ссылку)
+				tgbot.NewInlineKeyboardButtonData("Support the author", "donate"), //запрос деняк (добавить ссылку)
 			),
 		)
 	)
@@ -41,7 +41,7 @@ func SentWishKeyboard(bot *tgbot.BotAPI, choise bool, chatid int64) {
 		return
 	}
 
-	time.Sleep(time.Millisecond * 300)
+	time.Sleep(time.Millisecond * 200)
 	deleteMsg := tgbotapi.NewDeleteMessage(chatid, sentMsg.MessageID)
 	bot.Send(deleteMsg)
 
@@ -152,4 +152,26 @@ func SentConfirmationKeyboard(bot *tgbot.BotAPI, chatid int64) *tgbot.ReplyKeybo
 
 	return &Keyboard
 
+}
+
+func SentWishReservedKeyboard(bot *tgbot.BotAPI, chatid int64) {
+	keyboardToFriendReserveWish := tgbot.NewReplyKeyboard(
+
+		tgbot.NewKeyboardButtonRow(
+			tgbot.NewKeyboardButton("➡️ Следующее желание"),
+			tgbot.NewKeyboardButton("⬅️ Предыдущие желание"),
+		),
+
+		tgbot.NewKeyboardButtonRow(
+			tgbot.NewKeyboardButton("🔙 Вернуться в главное меню"),
+		),
+	)
+
+	keyboardToFriendReserveWish.ResizeKeyboard = true
+	keyboardToFriendReserveWish.OneTimeKeyboard = true
+	keyboardToFriendReserveWish.Selective = true
+
+	sms := tgbot.NewMessage(chatid, "Выбери команду на предложенной клавиатуре: ")
+	sms.ReplyMarkup = keyboardToFriendReserveWish
+	bot.Send(sms)
 }

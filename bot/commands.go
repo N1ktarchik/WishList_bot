@@ -8,6 +8,7 @@ import (
 
 	"github.com/N1ktarchik/Wishlist_bot/database"
 	inter "github.com/N1ktarchik/Wishlist_bot/interaction"
+	"github.com/N1ktarchik/Wishlist_bot/keyboards"
 	keyboard "github.com/N1ktarchik/Wishlist_bot/keyboards"
 	tgbot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -21,7 +22,7 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI, db *sql.DB) {
 	}()
 
 	if update.CallbackQuery != nil {
-		inter.ButtonProcessing(update, bot, *update.CallbackQuery)
+		inter.ButtonProcessing(update, bot, *update.CallbackQuery, db)
 		return
 	}
 
@@ -41,6 +42,7 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI, db *sql.DB) {
 		}
 
 		if status != nil && status.Step != 0 && status.IsAlive() {
+			//принят update/new
 			inter.ProcessingNewWish(status, update, bot, db)
 			return
 		}
@@ -53,6 +55,17 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI, db *sql.DB) {
 		switch {
 
 		case text == "/start":
+
+			user := database.User{ChatID: chatID, UserName: fmt.Sprint(user.UserName)}
+			err := user.AddToDB(db)
+			if err != nil {
+				log.Printf("writing user to DB error. %v", err)
+				msg := tgbot.NewMessage(chatID, "Error to add new wish! Send the screenshot to adminnistrator.")
+				bot.Send(msg)
+				keyboard.Menu(chatID, bot)
+				return
+			}
+
 			StartMessage := "Привет, " + user.UserName + " ,я жду ваших самых откровенных желаний."
 			msg := tgbot.NewMessage(chatID, StartMessage)
 			bot.Send(msg)
@@ -64,35 +77,85 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI, db *sql.DB) {
 			if len(mas) != 2 {
 				msg := tgbot.NewMessage(chatID, "Тег не распознается! Пожалуйста, отправьте его таким образом: /friend тег_друга")
 				bot.Send(msg)
-				keyboard.Menu(chatID, bot)
 				return
 			}
 
-			//name:=mas[1]
+			friendID, err := database.GetIdByUsername(mas[1], db)
+			if err != nil {
+				msg := tgbot.NewMessage(chatID, fmt.Sprintf("Пользователь с username %s не найден!", mas[1]))
+				log.Print(err)
+				bot.Send(msg)
+				return
+			}
 
-			//функция поиска друга
+			// session, err := database.GetWishSessonByID(chatID, db)
+			// if err != nil {
+			// 	log.Print(err)
+			// 	return
+			// }
+
+			if friendID == chatID {
+				msg := tgbot.NewMessage(chatID, "Что бы посмотреть свои желания нажмите: Мой WishList")
+				bot.Send(msg)
+				keyboards.Menu(chatID, bot)
+				return
+			}
+
+			session, err := database.CreateNewWishSession(chatID, friendID, db)
+			if err != nil {
+				log.Print(err)
+				return
+			}
+
+			inter.FormatWishMessage(session.WishID, chatID, friendID, false, db, bot)
+			return
 
 		case text == "/menu":
 			keyboard.Menu(chatID, bot)
 			return
 
 		case text == "➕ Добавить новое желание":
-			//обработка через БД
-			user := database.User{ChatID: chatID, UserName: fmt.Sprint(user.UserName)}
-			err := user.AddToDB(db)
-			if err != nil {
-				log.Printf("writing user to DB error. %v", err)
-				msg := tgbot.NewMessage(chatID, "Error! Send the screenshot to adminnistrator.")
-				bot.Send(msg)
-				keyboard.Menu(chatID, bot)
-				return
-			}
 
 			inter.HandleAddNewWish(chatID, bot, db)
 			return
 
 		case text == "❌ Удалить желание":
-			//обработка через БД
+
+			session, err := database.GetWishSessonByID(chatID, db)
+			if err != nil {
+				log.Print(err)
+				return
+			}
+
+			if session.ChatID != session.TargetID {
+				bot.Send(tgbot.NewMessage(chatID, "Нельзя удалять чужие желания!Ты злой и хитрый гринч)))"))
+				inter.FormatWishMessage(session.WishID, chatID, session.TargetID, false, db, bot)
+				return
+			}
+
+			wish, err := database.GetWishByID(session.WishID, db)
+			if err != nil {
+				bot.Send(tgbot.NewMessage(chatID, "Ошибка удаления!Попробуйте снова или обратитесь в поддержку."))
+				inter.FormatWishMessage(session.WishID, chatID, chatID, true, db, bot)
+				return
+			}
+
+			err = wish.DeleteFromDB(db)
+			if err != nil {
+				bot.Send(tgbot.NewMessage(chatID, "Ошибка удаления!Попробуйте снова или обратитесь в поддержку."))
+				inter.FormatWishMessage(session.WishID, chatID, chatID, true, db, bot)
+				return
+			}
+
+			session.Reset()
+			err = session.Save(db)
+			if err != nil {
+				log.Print(err)
+			}
+
+			msg := tgbot.NewMessage(chatID, "✅ *Желание Удалено!\nНадеюсь тебя порадовали новым подарком... *")
+			msg.ParseMode = "Markdown"
+			bot.Send(msg)
 
 		case text == "✏️ Изменить желание":
 			//обработка через БД
@@ -108,7 +171,48 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI, db *sql.DB) {
 			return
 
 		case text == "✅ Зарезервировать желание":
-			//обработка через БД
+
+			session, err := database.GetWishSessonByID(chatID, db)
+			if err != nil {
+				log.Print(err)
+				return
+			}
+
+			if session.ChatID == session.TargetID {
+				bot.Send(tgbot.NewMessage(chatID, "Нельзя резервировать свои желания!Дай возможность твоим друзьям порадовать тебя!"))
+				inter.FormatWishMessage(session.WishID, chatID, chatID, true, db, bot)
+				return
+			}
+
+			wish, err := database.GetWishByID(session.WishID, db)
+			if err != nil {
+				bot.Send(tgbot.NewMessage(chatID, "Ошибка резервации!Попробуйте снова или обратитесь в поддержку."))
+				inter.FormatWishMessage(session.WishID, chatID, session.TargetID, false, db, bot)
+				return
+			}
+
+			if wish.IsReserved {
+				bot.Send(tgbot.NewMessage(chatID, "Желание уже зарезервированно другим пользователем!."))
+				inter.FormatWishMessage(session.WishID, chatID, session.TargetID, false, db, bot)
+				return
+			}
+
+			err = database.ReserveWish(session.WishID, db)
+			if err != nil {
+				bot.Send(tgbot.NewMessage(chatID, "Ошибка резервации!Попробуйте снова или обратитесь в поддержку."))
+				inter.FormatWishMessage(session.WishID, chatID, session.TargetID, false, db, bot)
+				return
+			}
+
+			session.Reset()
+			err = session.Save(db)
+			if err != nil {
+				log.Print(err)
+			}
+
+			msg := tgbot.NewMessage(chatID, "✅ *Желание зарезервированно!\nОбрадуйте счастливика как можно скорее! *")
+			msg.ParseMode = "Markdown"
+			bot.Send(msg)
 
 		default:
 			msg := tgbot.NewMessage(chatID, "Такой команды не существует!")

@@ -93,12 +93,27 @@ func CreateTables(db *sql.DB) error {
 		price DECIMAL(10,2),
 		live TIMESTAMP NOT NULL
 		);`,
+
+		//chat id
+		//target chat id
+		//wish id (numeric)
+		//live time
+		`CREATE TABLE IF NOT EXISTS watch_session(
+		id BIGINT PRIMARY KEY,
+		target_id BIGINT,
+		current_wish BIGINT,
+		live TIMESTAMP NOT NULL
+		);`,
 	}
 
 	indexes := []string{
 		`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);`,
 
 		`CREATE INDEX IF NOT EXISTS idx_wishes_user_id ON wishes(user_id);`,
+
+		`CREATE INDEX IF NOT EXISTS idx_watch_session_live ON watch_session(live);`,
+
+		`CREATE INDEX IF NOT EXISTS idx_user_status_live ON user_status(live);`,
 	}
 
 	for _, query := range tables {

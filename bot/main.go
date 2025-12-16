@@ -72,10 +72,20 @@ func CleanUpService(db *sql.DB) {
 		log.Printf("error clean service. %v", err)
 	}
 
+	err = database.CleanExpiredSessions(db)
+	if err != nil {
+		log.Printf("error clean service. %v", err)
+	}
+
 	ticker := time.NewTicker(5 * time.Minute)
 
 	for range ticker.C {
 		err := database.CleanOverdueStatuses(db)
+		if err != nil {
+			log.Printf("error clean service. %v", err)
+		}
+
+		err = database.CleanExpiredSessions(db)
 		if err != nil {
 			log.Printf("error clean service. %v", err)
 		}
