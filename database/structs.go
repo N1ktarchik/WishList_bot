@@ -20,3 +20,11 @@ type Wish struct {
 type WishNavigation struct {
 	NextID, PrevID *int64
 }
+
+type UserStatus struct {
+	ChatID                     int64
+	Step                       int
+	WishName, Description, Url string
+	Price                      float64
+	live                       time.Time
+}

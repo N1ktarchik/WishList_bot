@@ -1,15 +1,18 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
 	"log"
 	"strings"
 
+	"github.com/N1ktarchik/Wishlist_bot/database"
 	inter "github.com/N1ktarchik/Wishlist_bot/interaction"
 	keyboard "github.com/N1ktarchik/Wishlist_bot/keyboards"
 	tgbot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI) {
+func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI, db *sql.DB) {
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -29,13 +32,29 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI) {
 		}
 
 		user := update.Message.From
+		chatID := update.Message.Chat.ID
 		text := update.Message.Text
+
+		status, err := database.GetUserStatusByID(db, chatID)
+		if err != nil {
+			log.Print(err)
+		}
+
+		if status != nil && status.Step != 0 && status.IsAlive() {
+			inter.ProcessingNewWish(status, update, bot, db)
+			return
+		}
+
+		if status != nil && status.Step != 0 && !status.IsAlive() {
+			status.Delete(db)
+			bot.Send(tgbot.NewMessage(chatID, "⏳ Время добавления истекло. Начните заново."))
+		}
 
 		switch {
 
 		case text == "/start":
-			StartMessage := "Hi, " + user.UserName + " ,I'm waiting for your most explicit desires."
-			msg := tgbot.NewMessage(update.Message.Chat.ID, StartMessage)
+			StartMessage := "Привет, " + user.UserName + " ,я жду ваших самых откровенных желаний."
+			msg := tgbot.NewMessage(chatID, StartMessage)
 			bot.Send(msg)
 
 		case strings.HasPrefix(text, "/friend"):
@@ -43,9 +62,9 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI) {
 			mas := strings.Split(text, " ")
 
 			if len(mas) != 2 {
-				msg := tgbot.NewMessage(update.Message.Chat.ID, "The tag is not recognized! Please send it like this: /friend tag_friend")
+				msg := tgbot.NewMessage(chatID, "Тег не распознается! Пожалуйста, отправьте его таким образом: /friend тег_друга")
 				bot.Send(msg)
-				keyboard.Menu(update, bot)
+				keyboard.Menu(chatID, bot)
 				return
 			}
 
@@ -54,36 +73,50 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI) {
 			//функция поиска друга
 
 		case text == "/menu":
-			keyboard.Menu(update, bot)
+			keyboard.Menu(chatID, bot)
 			return
 
-		case text == "➕ Add new wish":
-		//обработка через БД
+		case text == "➕ Добавить новое желание":
+			//обработка через БД
+			user := database.User{ChatID: chatID, UserName: fmt.Sprint(user.UserName)}
+			err := user.AddToDB(db)
+			if err != nil {
+				log.Printf("writing user to DB error. %v", err)
+				msg := tgbot.NewMessage(chatID, "Error! Send the screenshot to adminnistrator.")
+				bot.Send(msg)
+				keyboard.Menu(chatID, bot)
+				return
+			}
 
-		case text == "❌ Delete wish":
+			inter.HandleAddNewWish(chatID, bot, db)
+			return
+
+		case text == "❌ Удалить желание":
 			//обработка через БД
 
-		case text == "✏️ Change wish":
+		case text == "✏️ Изменить желание":
 			//обработка через БД
 
-		case text == "➡️ Next wish":
+		case text == "➡️ Следующее желание":
 			//обработка через БД
 			//Обдумать архитектуру
 
-		case text == "🔙 Exit to main menu":
-			keyboard.Menu(update, bot)
+		case text == "⬅️ Предыдущие желание":
+
+		case text == "🔙 Вернуться в главное меню":
+			keyboard.Menu(chatID, bot)
 			return
 
-		case text == "✅ Reserve wish":
+		case text == "✅ Зарезервировать желание":
 			//обработка через БД
 
 		default:
-			msg := tgbot.NewMessage(update.Message.Chat.ID, "Command not faund!")
+			msg := tgbot.NewMessage(chatID, "Такой команды не существует!")
 			bot.Send(msg)
 
 		}
 
-		keyboard.Menu(update, bot)
+		keyboard.Menu(chatID, bot)
 
 	}
 }

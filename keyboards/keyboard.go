@@ -1,52 +1,68 @@
 package keyboards
 
 import (
+	"log"
+	"time"
+
 	tgbot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func Menu(update tgbot.Update, bot *tgbot.BotAPI) {
+func Menu(chatID int64, bot *tgbot.BotAPI) {
 	//callback
 	var (
 		Keyboard = tgbot.NewInlineKeyboardMarkup(
 			tgbot.NewInlineKeyboardRow(
-				tgbot.NewInlineKeyboardButtonData("My WishList", "wishList"),
-				tgbot.NewInlineKeyboardButtonData("Friends WishList", "friendsWish"),
+				tgbot.NewInlineKeyboardButtonData("Мой WishList", "wishList"),
+				tgbot.NewInlineKeyboardButtonData("WishList друга", "friendsWish"),
 			),
 			tgbot.NewInlineKeyboardRow(
-				tgbot.NewInlineKeyboardButtonURL("Info", "https://music.yandex.ru"), //добавить статью телеграф (мануал по пользованию)
+				tgbot.NewInlineKeyboardButtonURL("Info", "https://t.me/n1k_go"), //тгк (возможно замена на статью телеграф)
 				tgbot.NewInlineKeyboardButtonURL("Help", "https://t.me/n1ktarchik"),
 			),
 			tgbot.NewInlineKeyboardRow(
-				//tgbot.NewInlineKeyboardButtonURL("The news channel", "https://music.yandex.ru"),   //канал тгк (добавить ссылку)
 				tgbot.NewInlineKeyboardButtonURL("Support the author", "https://music.yandex.ru"), //запрос деняк (добавить ссылку)
 			),
 		)
 	)
 
-	msg := tgbot.NewMessage(update.Message.Chat.ID, "Choose an action")
+	msg := tgbot.NewMessage(chatID, "Выберите действие")
 	msg.ReplyMarkup = Keyboard
 	bot.Send(msg)
 
 }
 
-func SentKeyboard(bot *tgbot.BotAPI, choise bool, chatid int64) {
+func SentWishKeyboard(bot *tgbot.BotAPI, choise bool, chatid int64) {
+
+	msg := tgbot.NewMessage(chatid, "Обрабатываю команду...")
+	sentMsg, err := bot.Send(msg)
+	if err != nil {
+		log.Printf("Error sending message: %v", err)
+		return
+	}
+
+	time.Sleep(time.Millisecond * 300)
+	deleteMsg := tgbotapi.NewDeleteMessage(chatid, sentMsg.MessageID)
+	bot.Send(deleteMsg)
+
 	//text
 	//choise=true
 	keyboardToMyWish := tgbot.NewReplyKeyboard(
 
 		tgbot.NewKeyboardButtonRow(
 
-			tgbot.NewKeyboardButton("➕ Add new wish"),
-			tgbot.NewKeyboardButton("❌ Delete wish"),
+			tgbot.NewKeyboardButton("➕ Добавить новое желание"),
+			tgbot.NewKeyboardButton("❌ Удалить желание"),
 		),
 
 		tgbot.NewKeyboardButtonRow(
-			tgbot.NewKeyboardButton("✏️ Change wish"),
-			tgbot.NewKeyboardButton("➡️ Next wish"),
+			tgbot.NewKeyboardButton("⬅️ Предыдущие желание"),
+			tgbot.NewKeyboardButton("➡️ Следующее желание"),
 		),
 
 		tgbot.NewKeyboardButtonRow(
-			tgbot.NewKeyboardButton("🔙 Exit to main menu"),
+			tgbot.NewKeyboardButton("✏️ Изменить желание"),
+			tgbot.NewKeyboardButton("🔙 Вернуться в главное меню"),
 		),
 	)
 
@@ -58,12 +74,16 @@ func SentKeyboard(bot *tgbot.BotAPI, choise bool, chatid int64) {
 	keyboardToFriendWish := tgbot.NewReplyKeyboard(
 
 		tgbot.NewKeyboardButtonRow(
-			tgbot.NewKeyboardButton("✅ Reserve wish"),
-			tgbot.NewKeyboardButton("➡️ Next wish"),
+			tgbot.NewKeyboardButton("✅ Зарезервировать желание"),
 		),
 
 		tgbot.NewKeyboardButtonRow(
-			tgbot.NewKeyboardButton("🔙 Exit to main menu"),
+			tgbot.NewKeyboardButton("➡️ Следующее желание"),
+			tgbot.NewKeyboardButton("⬅️ Предыдущие желание"),
+		),
+
+		tgbot.NewKeyboardButtonRow(
+			tgbot.NewKeyboardButton("🔙 Вернуться в главное меню"),
 		),
 	)
 
@@ -71,13 +91,65 @@ func SentKeyboard(bot *tgbot.BotAPI, choise bool, chatid int64) {
 	keyboardToFriendWish.OneTimeKeyboard = true
 	keyboardToFriendWish.Selective = true
 
-	msg := tgbot.NewMessage(chatid, "ㅤ") //корейский "чистый" пробел
+	sms := tgbot.NewMessage(chatid, "Выбери команду на предложенной клавиатуре: ")
 
 	if choise {
-		msg.ReplyMarkup = keyboardToMyWish
+		sms.ReplyMarkup = keyboardToMyWish
 	} else {
-		msg.ReplyMarkup = keyboardToFriendWish
+		sms.ReplyMarkup = keyboardToFriendWish
 	}
 
-	bot.Send(msg)
+	bot.Send(sms)
+}
+
+func SentNewWishAddKeyboard(bot *tgbot.BotAPI, choise bool, chatid int64) *tgbot.ReplyKeyboardMarkup {
+
+	//true=with Skip
+	KeyboardWithSkip := tgbot.NewReplyKeyboard(
+
+		tgbot.NewKeyboardButtonRow(
+
+			tgbot.NewKeyboardButton("❌ Отмена"),
+			tgbot.NewKeyboardButton("🚫 Пропустить"),
+		),
+	)
+
+	KeyboardWithSkip.ResizeKeyboard = true
+	KeyboardWithSkip.OneTimeKeyboard = true
+	KeyboardWithSkip.Selective = true
+
+	if choise {
+		return &KeyboardWithSkip
+	}
+
+	//false = with out Skip
+	KeyboardWithOutSkip := tgbot.NewReplyKeyboard(
+
+		tgbot.NewKeyboardButtonRow(
+
+			tgbot.NewKeyboardButton("❌ Отмена"),
+		),
+	)
+
+	KeyboardWithOutSkip.ResizeKeyboard = true
+	KeyboardWithOutSkip.OneTimeKeyboard = true
+	KeyboardWithOutSkip.Selective = true
+
+	return &KeyboardWithOutSkip
+}
+
+func SentConfirmationKeyboard(bot *tgbot.BotAPI, chatid int64) *tgbot.ReplyKeyboardMarkup {
+	Keyboard := tgbot.NewReplyKeyboard(
+		tgbot.NewKeyboardButtonRow(
+			tgbot.NewKeyboardButton("✅ Да! Сохранить."),
+			tgbot.NewKeyboardButton("❌ Нет! Начать заново."),
+		),
+	)
+
+	Keyboard.ResizeKeyboard = true
+	Keyboard.OneTimeKeyboard = true
+	Keyboard.Selective = true
+
+	return &Keyboard
+
 }

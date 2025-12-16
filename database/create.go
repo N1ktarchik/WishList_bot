@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
 )
 
@@ -22,7 +23,7 @@ func ConnectToDB() (*sql.DB, error) {
 		return nil, errors.New("connStr reading error")
 	}
 
-	db, err := sql.Open("postgres", connStr)
+	db, err := sql.Open("pgx", connStr)
 
 	if err != nil {
 		err := fmt.Errorf("faild to open database. %w", err)
@@ -76,6 +77,21 @@ func CreateTables(db *sql.DB) error {
 		price DECIMAL(10,2),
 		is_reserved BOOLEAN DEFAULT FALSE,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);`,
+
+		//chat id
+		//step status
+		//wish data
+		//...
+		//live time
+		`CREATE TABLE IF NOT EXISTS user_status(
+		id BIGINT PRIMARY KEY,
+		step INTEGER DEFAULT 0,
+		name VARCHAR(500) NOT NULL,
+		description TEXT,
+		link VARCHAR(1000),
+		price DECIMAL(10,2),
+		live TIMESTAMP NOT NULL
 		);`,
 	}
 
