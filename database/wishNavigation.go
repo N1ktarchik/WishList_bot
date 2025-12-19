@@ -12,8 +12,8 @@ type WishNavigation struct {
 	NextID, PrevID *int64
 }
 
-func GetWishNavigation(currentWishID, chatID int64, db *sql.DB) (*WishNavigation, error) {
-	if currentWishID <= 0 || chatID <= 0 {
+func GetWishNavigation(currentWishID, targetID int64, db *sql.DB) (*WishNavigation, error) {
+	if currentWishID <= 0 || targetID <= 0 {
 		err := errors.New("ivalid ID")
 		return nil, err
 	}
@@ -28,11 +28,11 @@ func GetWishNavigation(currentWishID, chatID int64, db *sql.DB) (*WishNavigation
 
 	var next, prev sql.NullInt64
 
-	err := db.QueryRowContext(ctx, query, chatID, currentWishID).Scan(&prev, &next)
+	err := db.QueryRowContext(ctx, query, targetID, currentWishID).Scan(&prev, &next)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, errors.New("wish or user not found")
+			return nil, err
 		}
 		return nil, fmt.Errorf("error reading data from DB: %w", err)
 	}

@@ -91,6 +91,7 @@ func CreateTables(db *sql.DB) error {
 		description TEXT,
 		link VARCHAR(1000),
 		price DECIMAL(10,2),
+		new BOOLEAN DEFAULT TRUE,
 		live TIMESTAMP NOT NULL
 		);`,
 

@@ -13,6 +13,7 @@ type UserStatus struct {
 	Step                       int
 	WishName, Description, Url string
 	Price                      float64
+	NewWish                    bool
 	live                       time.Time
 }
 
@@ -40,14 +41,15 @@ func CleanOverdueStatuses(db *sql.DB) error {
 
 func (s *UserStatus) Save(db *sql.DB) error {
 
-	query := `INSERT INTO user_status(id,step,name,description,link,price,live)
-			VALUES ($1,$2,$3,$4,$5,$6,$7)
+	query := `INSERT INTO user_status(id,step,name,description,link,price,new,live)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 			ON CONFLICT(id) DO UPDATE SET 
 				step = EXCLUDED.step ,
 				name = EXCLUDED.name ,
 				description = EXCLUDED.description ,
 				link = EXCLUDED.link , 
 				price = EXCLUDED.price ,
+				new = EXCLUDED.new,
 				live = EXCLUDED.live`
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
@@ -60,7 +62,7 @@ func (s *UserStatus) Save(db *sql.DB) error {
 		dbPrice = s.Price
 	}
 
-	_, err := db.ExecContext(ctx, query, s.ChatID, s.Step, s.WishName, s.Description, s.Url, dbPrice, s.live)
+	_, err := db.ExecContext(ctx, query, s.ChatID, s.Step, s.WishName, s.Description, s.Url, dbPrice, s.NewWish, s.live)
 
 	if err != nil {
 
@@ -128,6 +130,7 @@ func GetUserStatusByID(db *sql.DB, id int64) (*UserStatus, error) {
 		&status.Description,
 		&status.Url,
 		&price,
+		&status.NewWish,
 		&status.live,
 	)
 
@@ -164,14 +167,16 @@ func (s *UserStatus) Reset() {
 	s.Description = ""
 	s.Url = ""
 	s.Price = 0
+	s.NewWish = true
 	s.UpdateLiveTime(10)
 }
 
-func CreateNewUserStatus(id int64) *UserStatus {
+func CreateNewUserStatus(id int64, newWish bool) *UserStatus {
 	return &UserStatus{
-		ChatID: id,
-		Step:   1,
-		Price:  0,
-		live:   time.Now().Add(10 * time.Minute),
+		ChatID:  id,
+		Step:    1,
+		Price:   0,
+		NewWish: newWish,
+		live:    time.Now().Add(10 * time.Minute),
 	}
 }

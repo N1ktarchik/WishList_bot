@@ -141,7 +141,7 @@ func (w *Wish) UpdateWish(db *sql.DB) error { //
 	}
 
 	query := `
-        UPDATE wishes SET name = $1, description = $2, link = $3, price = $4, is_reserved = $5 WHERE id = $6 `
+        UPDATE wishes SET name = $1, description = $2, link = $3, price = $4 WHERE id = $5 `
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -158,7 +158,6 @@ func (w *Wish) UpdateWish(db *sql.DB) error { //
 		w.Description,
 		w.Url,
 		dbPrice,
-		w.IsReserved,
 		w.ID,
 	)
 

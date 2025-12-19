@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/N1ktarchik/Wishlist_bot/database"
+	"github.com/N1ktarchik/Wishlist_bot/keyboards"
 	keyboard "github.com/N1ktarchik/Wishlist_bot/keyboards"
 	tgbot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -23,6 +24,12 @@ func ButtonProcessing(update tgbot.Update, bot *tgbot.BotAPI, msg tgbot.Callback
 
 	defer bot.Request(callbackClose) //закрыли колл-бэк
 
+	// if !AdminRights(chatID, 667185380) { //что бы не мешали тестировать
+	// 	bot.Send(tgbot.NewMessage(chatID,
+	// 		"Воспользоваться ботом сейчас не получится.\n Я активно тестирую бота и вношу правки.\n Если хочешь получить доступ к бета-тестированию, заходи в тгк, и читай последний пост.\nhttps://t.me/n1k_go"))
+	// 	return
+	// }
+
 	switch data {
 	case "wishList":
 		deleteMsg := tgbot.NewDeleteMessage(chatID, messageID)
@@ -31,15 +38,20 @@ func ButtonProcessing(update tgbot.Update, bot *tgbot.BotAPI, msg tgbot.Callback
 		session, err := database.CreateNewWishSession(chatID, chatID, db)
 		if err != nil {
 			bot.Send(tgbot.NewMessage(chatID, "Твой список желаний пуст!"))
+			keyboards.SendFirstWishKeyboard(bot, chatID)
+
 			return
 		}
 
-		FormatWishMessage(session.WishID, chatID, chatID, true, db, bot)
+		FormatWishMessage(session, db, bot)
 
 	case "friendsWish":
 		deleteMsg := tgbot.NewDeleteMessage(chatID, messageID)
 		bot.Send(deleteMsg)
-		msg := tgbot.NewMessage(chatID, "Чтобы просмотреть список желаний друга, введите команду: /friend friend_tag")
+		msg := tgbot.NewMessage(chatID,
+			"Чтобы просмотреть список желаний друга, введите команду:\n\n"+
+				"`/friend @username`")
+		msg.ParseMode = "Markdown"
 		bot.Send(msg)
 
 	case "donate":
@@ -51,22 +63,23 @@ func ButtonProcessing(update tgbot.Update, bot *tgbot.BotAPI, msg tgbot.Callback
 
 }
 
-func FormatWishMessage(wishID, chatID, wishOwner int64, isOwnWish bool, db *sql.DB, bot *tgbot.BotAPI) {
+func FormatWishMessage(session *database.WishSession, db *sql.DB, bot *tgbot.BotAPI) {
 
 	var builder strings.Builder
-	wish, err := database.GetWishByID(wishID, db)
+	wish, err := database.GetWishByID(session.WishID, db)
 	if err != nil {
 		log.Print(err)
-		bot.Send(tgbot.NewMessage(wishOwner, "У пользователя нет желаний!"))
+		bot.Send(tgbot.NewMessage(session.TargetID, "У пользователя нет желаний!"))
 	}
 
-	if isOwnWish {
+	ownWish := session.ChatID == session.TargetID
+	if ownWish {
 		builder.WriteString("📋 *Мое желание*\n\n")
 	} else {
-		username, err := database.GetUsernameByID(wishOwner, db)
+		username, err := database.GetUsernameByID(session.TargetID, db)
 		if err != nil {
 			log.Print(err)
-			bot.Send(tgbot.NewMessage(chatID, "Что-то пошло не так...\nОтправь скриншот в поддержку или попробуй снова. Error to get wish by id"))
+			bot.Send(tgbot.NewMessage(session.ChatID, "Что-то пошло не так...\nОтправь скриншот в поддержку или попробуй снова. Error to get wish by id"))
 			return
 		}
 		builder.WriteString(fmt.Sprintf("🎁 *Желание @%s*\n\n", username))
@@ -76,43 +89,44 @@ func FormatWishMessage(wishID, chatID, wishOwner int64, isOwnWish bool, db *sql.
 
 	if wish.Description != "" {
 		builder.WriteString(fmt.Sprintf("📝 *Описание:* %s\n", wish.Description))
+	} else {
+		builder.WriteString("📝 *Описание:* _не указано _\n")
 	}
 
 	if wish.Price > 0 {
 		builder.WriteString(fmt.Sprintf("💰 *Цена:* %.2f руб.\n", wish.Price))
+	} else {
+		builder.WriteString("💰 *Цена:* _не указана _\n")
 	}
 
 	if wish.Url != "" {
 		builder.WriteString(fmt.Sprintf("🔗 *Ссылка:* %s\n", wish.Url))
+	} else {
+		builder.WriteString("🔗 *Ссылка:* _не указана _\n")
 	}
 
-	flag := false
+	reserved := false
 	if wish.IsReserved {
-		if !isOwnWish {
+		if !ownWish {
 			builder.WriteString("\n")
 			builder.WriteString("🚫 *ЗАРЕЗЕРВИРОВАНО!*\n")
 			builder.WriteString("_(Это желание уже забронировано другим пользователем)_\n")
-			flag = true
+			reserved = true
 		}
-	} else if !isOwnWish {
+	} else if !ownWish {
 		builder.WriteString("\n")
 		builder.WriteString("✅ *Доступно для резервирования*\n")
 	}
 
 	message := builder.String()
 
-	msg := tgbot.NewMessage(chatID, message)
+	msg := tgbot.NewMessage(session.ChatID, message)
 	msg.ParseMode = "Markdown"
 
 	bot.Send(msg)
 
-	if flag {
-		keyboard.SentWishReservedKeyboard(bot, chatID)
-		return
-	}
-
-	keyboard.SentWishKeyboard(bot, isOwnWish, chatID)
-
+	navigation, _ := database.GetWishNavigation(session.WishID, session.TargetID, db)
+	keyboard.SendWishKeyboard(bot, ownWish, session.ChatID, navigation, reserved)
 }
 
 func sendDonateMessage(bot *tgbotapi.BotAPI, chatID int64) {
@@ -157,7 +171,79 @@ func sendDonateMessage(bot *tgbotapi.BotAPI, chatID int64) {
 	msg.ParseMode = "HTML"
 	msg.DisableWebPagePreview = true
 
-	if _, err := bot.Send(msg); err != nil {
+	_, err := bot.Send(msg)
+	if err != nil {
 		log.Printf("error send donate message: %v", err)
 	}
+
+	keyboards.SendBackMainMenuKeyboard(bot, chatID)
+}
+
+func ScrollingWish(bot *tgbotapi.BotAPI, chatID int64, next bool, db *sql.DB) error {
+	session, err := database.GetWishSessonByID(chatID, db)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			bot.Send(tgbot.NewMessage(chatID, "Выберите чей виш лист вы хотите посмотреть!"))
+			keyboards.Menu(chatID, bot) //отправка меню для пользователя
+			return nil
+		}
+
+		keyboards.Menu(chatID, bot)
+		return err
+	}
+
+	if session == nil {
+		bot.Send(tgbot.NewMessage(chatID, "Выберите чей виш лист вы хотите посмотреть!"))
+		keyboards.Menu(chatID, bot)
+		return nil
+	}
+
+	navigation, err := database.GetWishNavigation(session.WishID, session.TargetID, db)
+
+	if err != nil {
+		FormatWishMessage(session, db, bot)
+		return err
+	}
+
+	change := false
+
+	if next && navigation.NextID != nil {
+		session.WishID = *navigation.NextID
+		change = true
+	} else if !next && navigation.PrevID != nil {
+		session.WishID = *navigation.PrevID
+		change = true
+	}
+
+	if !change {
+
+		if next {
+			bot.Send(tgbot.NewMessage(chatID, "Это было последнее желание пользователя!"))
+		} else {
+			bot.Send(tgbot.NewMessage(chatID, "Это было само первое желание пользователя!"))
+		}
+
+		FormatWishMessage(session, db, bot)
+		return nil
+	}
+
+	session.UpdateLiveTime(10)
+	err = session.Update(db)
+	if err != nil {
+		log.Printf("error to update session. %v", err)
+	}
+	FormatWishMessage(session, db, bot)
+	return nil
+
+}
+
+func AdminRights(user int64, chatID ...int64) bool {
+	for i := range chatID {
+		if user == int64(i) {
+			return true
+		}
+	}
+
+	return false
 }
