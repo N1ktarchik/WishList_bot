@@ -26,12 +26,6 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI, db *sql.DB) {
 		return
 	}
 
-	// if !inter.AdminRights(update.Message.Chat.ID, 667185380) { //что бы не мешали тестировать
-	// 	bot.Send(tgbot.NewMessage(update.Message.Chat.ID,
-	// 		"Воспользоваться ботом сейчас не получится.\n Я активно тестирую бота и вношу правки.\n Если хочешь получить доступ к бета-тестированию, заходи в тгк, и читай последний пост.\nhttps://t.me/n1k_go"))
-	// 	return
-	// }
-
 	if update.Message != nil && update.Message.Text != "" {
 
 		if update.Message.From == nil {
@@ -48,6 +42,7 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI, db *sql.DB) {
 		}
 
 		if status != nil && status.Step != 0 && status.IsAlive() {
+			log.Println("не здесь 1")
 			inter.ProcessingNewWish(status, update, bot, db)
 			return
 		}
@@ -159,7 +154,7 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI, db *sql.DB) {
 
 		case text == "✏️ Изменить желание":
 			session, err := database.GetWishSessonByID(chatID, db)
-			if err != nil {
+			if err != nil || session == nil {
 				log.Print(err)
 				keyboards.Menu(chatID, bot)
 				return
@@ -171,9 +166,18 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI, db *sql.DB) {
 				return
 			}
 
-			session.UpdateLiveTime(30)
+			session.UpdateLiveTime(10)
 
-			inter.HandleChangeWish(chatID, bot, db)
+			status, err = inter.CopyWishToStatus(chatID, session.WishID, db)
+			if err != nil {
+				bot.Send(tgbot.NewMessage(chatID, "Ошибка изменения!Попробуйте снова или обратитесь в поддержку."))
+			}
+
+			status.Save(db)
+			msg := tgbot.NewMessage(chatID, "Выбери команду на клавиаутре")
+			msg.ReplyMarkup = keyboard.SendConfirmationUpdateKeyboard(bot, chatID)
+			bot.Send(msg)
+			//inter.HandleChangeWish(chatID, bot, db)
 			return
 
 		case text == "➡️ Следующее желание":

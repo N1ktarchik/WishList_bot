@@ -92,6 +92,7 @@ func CreateTables(db *sql.DB) error {
 		link VARCHAR(1000),
 		price DECIMAL(10,2),
 		new BOOLEAN DEFAULT TRUE,
+		one_field_changed BOOLEAN DEFAULT FALSE,
 		live TIMESTAMP NOT NULL
 		);`,
 

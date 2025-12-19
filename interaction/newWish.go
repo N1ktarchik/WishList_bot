@@ -42,7 +42,7 @@ func HandleAddNewWish(chatID int64, bot *tgbot.BotAPI, db *sql.DB) {
 
 	}
 
-	status = database.CreateNewUserStatus(chatID, true)
+	status = database.CreateNewUserStatus(chatID, true, false)
 	err = status.Save(db)
 	if err != nil {
 		log.Printf("save new wish done. error reset status. %v", err)
@@ -74,6 +74,7 @@ func ProcessingNewWish(status *database.UserStatus, update tgbot.Update, bot *tg
 	}
 
 	status.UpdateLiveTime(5)
+	log.Println("не здесь 2")
 	switch status.Step {
 
 	case 1:
@@ -101,6 +102,12 @@ func ProcessingNewWish(status *database.UserStatus, update tgbot.Update, bot *tg
 			return
 		}
 
+		if status.OneFieldToChanged {
+			SendConfirmation(status, chatID, bot)
+			status.Step = 5
+			status.Save(db)
+			return
+		}
 		msg := tgbot.NewMessage(chatID,
 			"Введите *описание* желания:")
 		msg.ParseMode = "Markdown"
@@ -130,6 +137,12 @@ func ProcessingNewWish(status *database.UserStatus, update tgbot.Update, bot *tg
 			return
 		}
 
+		if status.OneFieldToChanged {
+			SendConfirmation(status, chatID, bot)
+			status.Step = 5
+			status.Save(db)
+			return
+		}
 		msg := tgbot.NewMessage(chatID,
 			"Введите *ссылку на товар*:")
 		msg.ParseMode = "Markdown"
@@ -165,6 +178,13 @@ func ProcessingNewWish(status *database.UserStatus, update tgbot.Update, bot *tg
 		if err != nil {
 			bot.Send(tgbot.NewMessage(chatID,
 				"Ошибка сохранения! Попробуйте еще раз, или пришлите скриншот в поддержку!"))
+			return
+		}
+
+		if status.OneFieldToChanged {
+			SendConfirmation(status, chatID, bot)
+			status.Step = 5
+			status.Save(db)
 			return
 		}
 
@@ -222,6 +242,7 @@ func ProcessingNewWish(status *database.UserStatus, update tgbot.Update, bot *tg
 		status.Step = 5
 
 	case 5:
+		log.Println("не здесь 3")
 		HandleConfirmation(status, txt, chatID, bot, db)
 		return
 
@@ -287,11 +308,50 @@ func HandleConfirmation(status *database.UserStatus, text string, chatID int64, 
 			UpdateWishFromStatus(status, chatID, bot, db, wish.WishID)
 		}
 
-	case "нет", "no", "отмена", "❌ нет! начать заново.":
+	case "нет", "no", "отмена", "❌ нет! начать заново.", "🔄 начать заполнение заново.":
 		status.Step = 1
 		status.Save(db)
 		msg := tgbot.NewMessage(chatID, "Введите название:")
 		msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, false, chatID)
+		bot.Send(msg)
+
+	case "📝 изменить название желания.":
+		status.Step = 1
+		status.OneFieldToChanged = true
+		status.Save(db)
+
+		msg := tgbot.NewMessage(chatID, "Введите *название* желания:\n")
+		msg.ParseMode = "Markdown"
+		bot.Send(msg)
+
+	case "📋 изменить описание желания.":
+		status.Step = 2
+		status.OneFieldToChanged = true
+		status.Save(db)
+
+		msg := tgbot.NewMessage(chatID, "Введите *описание* желания:")
+		msg.ParseMode = "Markdown"
+		msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, true, chatID)
+		bot.Send(msg)
+
+	case "🔗 изменить ссылку.":
+		status.Step = 3
+		status.OneFieldToChanged = true
+		status.Save(db)
+
+		msg := tgbot.NewMessage(chatID, "Введите *ссылку на товар*:")
+		msg.ParseMode = "Markdown"
+		msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, true, chatID)
+		bot.Send(msg)
+
+	case "💰 изменить цену желания":
+		status.Step = 4
+		status.OneFieldToChanged = true
+		status.Save(db)
+
+		msg := tgbot.NewMessage(chatID, "Введите *цену* в рублях (только число, например: 1500.50):")
+		msg.ParseMode = "Markdown"
+		msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, true, chatID)
 		bot.Send(msg)
 
 	default:
