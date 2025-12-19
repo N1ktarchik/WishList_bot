@@ -1,9 +1,7 @@
 package keyboards
 
 import (
-	"log"
-	"time"
-
+	db "github.com/N1ktarchik/Wishlist_bot/database"
 	tgbot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -32,113 +30,105 @@ func Menu(chatID int64, bot *tgbot.BotAPI) {
 
 }
 
-func SentWishKeyboard(bot *tgbot.BotAPI, choise bool, chatid int64) {
+func SendWishKeyboard(bot *tgbotapi.BotAPI, isMyWish bool, chatID int64, navigation *db.WishNavigation, reserved bool) {
+	var rows [][]tgbotapi.KeyboardButton
 
-	msg := tgbot.NewMessage(chatid, "Обрабатываю команду...")
-	sentMsg, err := bot.Send(msg)
-	if err != nil {
-		log.Printf("Error sending message: %v", err)
+	if isMyWish {
+		rows = append(rows, []tgbotapi.KeyboardButton{
+			tgbotapi.NewKeyboardButton("➕ Добавить новое желание"),
+			tgbotapi.NewKeyboardButton("❌ Удалить желание"),
+		})
+
+		addNavigationButtons(&rows, navigation)
+
+		rows = append(rows, []tgbotapi.KeyboardButton{
+			tgbotapi.NewKeyboardButton("✏️ Изменить желание"),
+			tgbotapi.NewKeyboardButton("🔙 Главное меню"),
+		})
+	} else {
+		addReserveButton(&rows, reserved)
+
+		addNavigationButtons(&rows, navigation)
+
+		rows = append(rows, []tgbotapi.KeyboardButton{
+			tgbotapi.NewKeyboardButton("🔙 Главное меню"),
+		})
+	}
+
+	keyboard := tgbotapi.NewReplyKeyboard(rows...)
+	keyboard.ResizeKeyboard = true
+	keyboard.OneTimeKeyboard = true
+	keyboard.Selective = true
+
+	msg := tgbotapi.NewMessage(chatID, "Выбери команду:")
+	msg.ReplyMarkup = keyboard
+	bot.Send(msg)
+}
+
+func addReserveButton(rows *[][]tgbotapi.KeyboardButton, reserved bool) {
+	var navButtons []tgbotapi.KeyboardButton
+
+	if !reserved {
+		navButtons = append(navButtons, tgbotapi.NewKeyboardButton("✅ Зарезервировать желание"))
+	}
+
+	if len(navButtons) > 0 {
+		*rows = append(*rows, navButtons)
+	}
+}
+
+func addNavigationButtons(rows *[][]tgbotapi.KeyboardButton, navigation *db.WishNavigation) {
+
+	if navigation == nil {
 		return
 	}
 
-	time.Sleep(time.Millisecond * 200)
-	deleteMsg := tgbotapi.NewDeleteMessage(chatid, sentMsg.MessageID)
-	bot.Send(deleteMsg)
+	var navButtons []tgbotapi.KeyboardButton
 
-	//text
-	//choise=true
-	keyboardToMyWish := tgbot.NewReplyKeyboard(
+	if navigation.PrevID != nil {
+		navButtons = append(navButtons, tgbotapi.NewKeyboardButton("⬅️ Предыдущее желание"))
+	}
 
-		tgbot.NewKeyboardButtonRow(
+	if navigation.NextID != nil {
+		navButtons = append(navButtons, tgbotapi.NewKeyboardButton("➡️ Следующее желание"))
+	}
 
-			tgbot.NewKeyboardButton("➕ Добавить новое желание"),
-			tgbot.NewKeyboardButton("❌ Удалить желание"),
-		),
+	if len(navButtons) > 0 {
+		*rows = append(*rows, navButtons)
+	}
+}
 
-		tgbot.NewKeyboardButtonRow(
-			tgbot.NewKeyboardButton("⬅️ Предыдущие желание"),
-			tgbot.NewKeyboardButton("➡️ Следующее желание"),
-		),
+func SendNewWishAddKeyboard(bot *tgbot.BotAPI, withSkip bool, chatid int64) *tgbot.ReplyKeyboardMarkup {
 
-		tgbot.NewKeyboardButtonRow(
-			tgbot.NewKeyboardButton("✏️ Изменить желание"),
-			tgbot.NewKeyboardButton("🔙 Вернуться в главное меню"),
-		),
-	)
+	var Keyboard = tgbot.NewReplyKeyboard()
 
-	keyboardToMyWish.ResizeKeyboard = true
-	keyboardToMyWish.OneTimeKeyboard = true
-	keyboardToMyWish.Selective = true
+	if withSkip {
+		Keyboard = tgbot.NewReplyKeyboard(
 
-	//choise=false
-	keyboardToFriendWish := tgbot.NewReplyKeyboard(
+			tgbot.NewKeyboardButtonRow(
 
-		tgbot.NewKeyboardButtonRow(
-			tgbot.NewKeyboardButton("✅ Зарезервировать желание"),
-		),
-
-		tgbot.NewKeyboardButtonRow(
-			tgbot.NewKeyboardButton("➡️ Следующее желание"),
-			tgbot.NewKeyboardButton("⬅️ Предыдущие желание"),
-		),
-
-		tgbot.NewKeyboardButtonRow(
-			tgbot.NewKeyboardButton("🔙 Вернуться в главное меню"),
-		),
-	)
-
-	keyboardToFriendWish.ResizeKeyboard = true
-	keyboardToFriendWish.OneTimeKeyboard = true
-	keyboardToFriendWish.Selective = true
-
-	sms := tgbot.NewMessage(chatid, "Выбери команду на предложенной клавиатуре: ")
-
-	if choise {
-		sms.ReplyMarkup = keyboardToMyWish
+				tgbot.NewKeyboardButton("❌ Отмена"),
+				tgbot.NewKeyboardButton("🚫 Пропустить"),
+			),
+		)
 	} else {
-		sms.ReplyMarkup = keyboardToFriendWish
+		Keyboard = tgbot.NewReplyKeyboard(
+
+			tgbot.NewKeyboardButtonRow(
+
+				tgbot.NewKeyboardButton("❌ Отмена"),
+			),
+		)
 	}
 
-	bot.Send(sms)
+	Keyboard.ResizeKeyboard = true
+	Keyboard.OneTimeKeyboard = true
+	Keyboard.Selective = true
+
+	return &Keyboard
 }
 
-func SentNewWishAddKeyboard(bot *tgbot.BotAPI, choise bool, chatid int64) *tgbot.ReplyKeyboardMarkup {
-
-	//true=with Skip
-	KeyboardWithSkip := tgbot.NewReplyKeyboard(
-
-		tgbot.NewKeyboardButtonRow(
-
-			tgbot.NewKeyboardButton("❌ Отмена"),
-			tgbot.NewKeyboardButton("🚫 Пропустить"),
-		),
-	)
-
-	KeyboardWithSkip.ResizeKeyboard = true
-	KeyboardWithSkip.OneTimeKeyboard = true
-	KeyboardWithSkip.Selective = true
-
-	if choise {
-		return &KeyboardWithSkip
-	}
-
-	//false = with out Skip
-	KeyboardWithOutSkip := tgbot.NewReplyKeyboard(
-
-		tgbot.NewKeyboardButtonRow(
-
-			tgbot.NewKeyboardButton("❌ Отмена"),
-		),
-	)
-
-	KeyboardWithOutSkip.ResizeKeyboard = true
-	KeyboardWithOutSkip.OneTimeKeyboard = true
-	KeyboardWithOutSkip.Selective = true
-
-	return &KeyboardWithOutSkip
-}
-
-func SentConfirmationKeyboard(bot *tgbot.BotAPI, chatid int64) *tgbot.ReplyKeyboardMarkup {
+func SendConfirmationKeyboard(bot *tgbot.BotAPI, chatid int64) *tgbot.ReplyKeyboardMarkup {
 	Keyboard := tgbot.NewReplyKeyboard(
 		tgbot.NewKeyboardButtonRow(
 			tgbot.NewKeyboardButton("✅ Да! Сохранить."),
@@ -154,24 +144,38 @@ func SentConfirmationKeyboard(bot *tgbot.BotAPI, chatid int64) *tgbot.ReplyKeybo
 
 }
 
-func SentWishReservedKeyboard(bot *tgbot.BotAPI, chatid int64) {
-	keyboardToFriendReserveWish := tgbot.NewReplyKeyboard(
+func SendFirstWishKeyboard(bot *tgbot.BotAPI, chatid int64) {
+	keyboard := tgbot.NewReplyKeyboard(
 
 		tgbot.NewKeyboardButtonRow(
-			tgbot.NewKeyboardButton("➡️ Следующее желание"),
-			tgbot.NewKeyboardButton("⬅️ Предыдущие желание"),
+
+			tgbot.NewKeyboardButton("➕ Добавить новое желание"),
 		),
+	)
+
+	keyboard.ResizeKeyboard = true
+	keyboard.OneTimeKeyboard = true
+	keyboard.Selective = true
+
+	sms := tgbot.NewMessage(chatid, "Хоешь добавить первое желание? ")
+	sms.ReplyMarkup = keyboard
+	bot.Send(sms)
+}
+
+func SendBackMainMenuKeyboard(bot *tgbot.BotAPI, chatid int64) {
+	keyboard := tgbot.NewReplyKeyboard(
 
 		tgbot.NewKeyboardButtonRow(
+
 			tgbot.NewKeyboardButton("🔙 Вернуться в главное меню"),
 		),
 	)
 
-	keyboardToFriendReserveWish.ResizeKeyboard = true
-	keyboardToFriendReserveWish.OneTimeKeyboard = true
-	keyboardToFriendReserveWish.Selective = true
+	keyboard.ResizeKeyboard = true
+	keyboard.OneTimeKeyboard = true
+	keyboard.Selective = true
 
-	sms := tgbot.NewMessage(chatid, "Выбери команду на предложенной клавиатуре: ")
-	sms.ReplyMarkup = keyboardToFriendReserveWish
+	sms := tgbot.NewMessage(chatid, " ❤️ ")
+	sms.ReplyMarkup = keyboard
 	bot.Send(sms)
 }

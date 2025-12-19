@@ -42,7 +42,7 @@ func HandleAddNewWish(chatID int64, bot *tgbot.BotAPI, db *sql.DB) {
 
 	}
 
-	status = database.CreateNewUserStatus(chatID)
+	status = database.CreateNewUserStatus(chatID, true)
 	err = status.Save(db)
 	if err != nil {
 		log.Printf("save new wish done. error reset status. %v", err)
@@ -57,7 +57,7 @@ func HandleAddNewWish(chatID int64, bot *tgbot.BotAPI, db *sql.DB) {
 			"Введите *название* желания:\n"+
 			"(или напишите /cancel для отмены)")
 	msg.ParseMode = "Markdown"
-	msg.ReplyMarkup = keyboard.SentNewWishAddKeyboard(bot, false, chatID)
+	msg.ReplyMarkup = keyboard.SendNewWishAddKeyboard(bot, false, chatID)
 	bot.Send(msg)
 }
 
@@ -79,14 +79,14 @@ func ProcessingNewWish(status *database.UserStatus, update tgbot.Update, bot *tg
 	case 1:
 		if txt == "" {
 			msg := tgbot.NewMessage(chatID, "Название желания не может быть пустым! Попробуйте еще раз:")
-			msg.ReplyMarkup = keyboards.SentNewWishAddKeyboard(bot, false, chatID)
+			msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, false, chatID)
 			bot.Send(msg)
 			return
 		}
 
 		if len(txt) < 3 {
 			msg := tgbot.NewMessage(chatID, "Название желания слишком короткое!  Попробуйте еще раз:")
-			msg.ReplyMarkup = keyboards.SentNewWishAddKeyboard(bot, false, chatID)
+			msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, false, chatID)
 			bot.Send(msg)
 			return
 		}
@@ -104,7 +104,7 @@ func ProcessingNewWish(status *database.UserStatus, update tgbot.Update, bot *tg
 		msg := tgbot.NewMessage(chatID,
 			"Введите *описание* желания:")
 		msg.ParseMode = "Markdown"
-		msg.ReplyMarkup = keyboards.SentNewWishAddKeyboard(bot, true, chatID)
+		msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, true, chatID)
 		bot.Send(msg)
 
 	case 2:
@@ -115,7 +115,7 @@ func ProcessingNewWish(status *database.UserStatus, update tgbot.Update, bot *tg
 		if len(txt) > 1000 {
 			msg := tgbot.NewMessage(chatID,
 				"❌ Описание слишком длинное! Максимум 1000 символов.")
-			msg.ReplyMarkup = keyboards.SentNewWishAddKeyboard(bot, true, chatID)
+			msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, true, chatID)
 			bot.Send(msg)
 			return
 		}
@@ -133,7 +133,7 @@ func ProcessingNewWish(status *database.UserStatus, update tgbot.Update, bot *tg
 		msg := tgbot.NewMessage(chatID,
 			"Введите *ссылку на товар*:")
 		msg.ParseMode = "Markdown"
-		msg.ReplyMarkup = keyboards.SentNewWishAddKeyboard(bot, true, chatID)
+		msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, true, chatID)
 		bot.Send(msg)
 
 	case 3:
@@ -142,7 +142,7 @@ func ProcessingNewWish(status *database.UserStatus, update tgbot.Update, bot *tg
 				msg := tgbot.NewMessage(chatID,
 					"❌ Ссылка должна начинаться с http:// или https://\n"+
 						"Попробуйте еще раз:")
-				msg.ReplyMarkup = keyboards.SentNewWishAddKeyboard(bot, true, chatID)
+				msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, true, chatID)
 				bot.Send(msg)
 				return
 			}
@@ -150,7 +150,7 @@ func ProcessingNewWish(status *database.UserStatus, update tgbot.Update, bot *tg
 			if len(txt) > 1000 {
 				msg := tgbot.NewMessage(chatID,
 					"❌ Ссылка слишком длинная! Максимум 1000 символов.")
-				msg.ReplyMarkup = keyboards.SentNewWishAddKeyboard(bot, true, chatID)
+				msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, true, chatID)
 				bot.Send(msg)
 				return
 			}
@@ -171,18 +171,27 @@ func ProcessingNewWish(status *database.UserStatus, update tgbot.Update, bot *tg
 		msg := tgbot.NewMessage(chatID,
 			"Введите *цену* в рублях (только число, например: 1500.50):")
 		msg.ParseMode = "Markdown"
-		msg.ReplyMarkup = keyboards.SentNewWishAddKeyboard(bot, true, chatID)
+		msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, true, chatID)
 		bot.Send(msg)
 
 	case 4:
 		var price float64 = 0
 
 		if txt != "🚫 Пропустить" {
+
+			if strings.Contains(txt, ",") {
+				txt = strings.ReplaceAll(txt, ",", ".")
+			}
+
+			if !strings.Contains(txt, ".") {
+				txt = txt + ".00"
+			}
+
 			parsedPrice, err := strconv.ParseFloat(txt, 64)
 
 			if err != nil {
 				msg := tgbot.NewMessage(chatID, "❌ Цена некорректна, попробуйте еще раз:")
-				msg.ReplyMarkup = keyboards.SentNewWishAddKeyboard(bot, true, chatID)
+				msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, true, chatID)
 				bot.Send(msg)
 				return
 			}
@@ -190,7 +199,7 @@ func ProcessingNewWish(status *database.UserStatus, update tgbot.Update, bot *tg
 			if parsedPrice <= 0 {
 				msg := tgbot.NewMessage(chatID,
 					"❌ Цена не может быть меньше или равно нулю, попробуйте еще раз:")
-				msg.ReplyMarkup = keyboards.SentNewWishAddKeyboard(bot, true, chatID)
+				msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, true, chatID)
 				bot.Send(msg)
 				return
 			}
@@ -214,6 +223,7 @@ func ProcessingNewWish(status *database.UserStatus, update tgbot.Update, bot *tg
 
 	case 5:
 		HandleConfirmation(status, txt, chatID, bot, db)
+		return
 
 	default:
 		log.Printf("Неизвестный шаг статуса: %d для пользователя %d", status.Step, userID)
@@ -221,7 +231,7 @@ func ProcessingNewWish(status *database.UserStatus, update tgbot.Update, bot *tg
 		status.Save(db)
 
 		msg := tgbot.NewMessage(chatID, "⚠️ Произошла ошибка. Начинаем заново.")
-		msg.ReplyMarkup = keyboards.SentNewWishAddKeyboard(bot, false, chatID)
+		msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, false, chatID)
 		bot.Send(msg)
 
 	}
@@ -255,25 +265,38 @@ func SendConfirmation(status *database.UserStatus, chatID int64, bot *tgbot.BotA
 
 	msg := tgbot.NewMessage(chatID, msgText)
 	msg.ParseMode = "Markdown"
-	msg.ReplyMarkup = keyboard.SentConfirmationKeyboard(bot, chatID)
+	msg.ReplyMarkup = keyboard.SendConfirmationKeyboard(bot, chatID)
 	bot.Send(msg)
 }
 
 func HandleConfirmation(status *database.UserStatus, text string, chatID int64, bot *tgbot.BotAPI, db *sql.DB) {
 	switch strings.ToLower(text) {
 	case "да", "yes", "ok", "подтверждаю", "✅ да! сохранить.":
-		SaveWishFromStatus(status, chatID, bot, db)
+		if status.NewWish {
+			SaveWishFromStatus(status, chatID, bot, db)
+		} else {
+			wish, err := database.GetWishSessonByID(chatID, db)
+			if err != nil {
+				bot.Send(tgbot.NewMessage(chatID, "Ошибка обновления желания!Попробуйте сновы или обратитесь в поддержку"))
+				status.Reset()
+				status.Save(db)
+				log.Print(err)
+				return
+			}
+
+			UpdateWishFromStatus(status, chatID, bot, db, wish.WishID)
+		}
 
 	case "нет", "no", "отмена", "❌ нет! начать заново.":
 		status.Step = 1
 		status.Save(db)
 		msg := tgbot.NewMessage(chatID, "Введите название:")
-		msg.ReplyMarkup = keyboards.SentNewWishAddKeyboard(bot, false, chatID)
+		msg.ReplyMarkup = keyboards.SendNewWishAddKeyboard(bot, false, chatID)
 		bot.Send(msg)
 
 	default:
 		msg := tgbot.NewMessage(chatID, "Пожалуйста, выберите вариант из клавиатуры:")
-		msg.ReplyMarkup = keyboards.SentConfirmationKeyboard(bot, chatID)
+		msg.ReplyMarkup = keyboards.SendConfirmationKeyboard(bot, chatID)
 		bot.Send(msg)
 	}
 }

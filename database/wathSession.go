@@ -62,7 +62,7 @@ func (ws *WishSession) Update(db *sql.DB) error {
 	}
 
 	query := `
-        UPDATE watch_session SET current_wish = $1 , live=$2 WHERE chat_id = $3 `
+        UPDATE watch_session SET current_wish = $1 , live=$2 WHERE id = $3 `
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
