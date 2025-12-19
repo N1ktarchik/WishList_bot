@@ -31,9 +31,12 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI, db *sql.DB) {
 
 		if update.Message != nil && update.Message.Text != "" && strings.HasPrefix(update.Message.Text, "/test") {
 			if inter.CheckPassword(update.Message.Text) {
-				database.SaveNewTester(update.Message.Chat.ID, db)
+				database.SaveNewTester(update.Message.Chat.ID, update.Message.From.UserName, db)
 				bot.Send(tgbot.NewMessage(update.Message.Chat.ID, "Доступ к тестировке разрешен!\nСпасибо за твою помощь в моем проекте!"))
 				keyboard.SendTesterKeyboard(bot, update.Message.Chat.ID)
+				return
+			} else {
+				bot.Send(tgbot.NewMessage(update.Message.Chat.ID, "Пароль не верный!Введи пароль строго по шаблону\n\n/test password\n\nВместо password укажи пароль тестировщика"))
 				return
 			}
 

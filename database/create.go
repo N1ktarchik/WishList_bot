@@ -108,7 +108,8 @@ func CreateTables(db *sql.DB) error {
 
 		//for beta-test
 		`CREATE TABLE IF NOT EXISTS testers(
-		id BIGINT PRIMARY KEY
+		id BIGINT PRIMARY KEY,
+		username VARCHAR(255) UNIQUE
 		)`,
 	}
 
