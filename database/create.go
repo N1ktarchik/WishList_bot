@@ -59,7 +59,7 @@ func CreateTables(db *sql.DB) error {
 		id BIGINT PRIMARY KEY,
 		username VARCHAR(255) UNIQUE,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		);`,
+		)`,
 
 		//numeric
 		//chat id
@@ -77,7 +77,7 @@ func CreateTables(db *sql.DB) error {
 		price DECIMAL(10,2),
 		is_reserved BOOLEAN DEFAULT FALSE,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		);`,
+		)`,
 
 		//chat id
 		//step status
@@ -93,7 +93,7 @@ func CreateTables(db *sql.DB) error {
 		price DECIMAL(10,2),
 		new BOOLEAN DEFAULT TRUE,
 		live TIMESTAMP NOT NULL
-		);`,
+		)`,
 
 		//chat id
 		//target chat id
@@ -104,7 +104,12 @@ func CreateTables(db *sql.DB) error {
 		target_id BIGINT,
 		current_wish BIGINT,
 		live TIMESTAMP NOT NULL
-		);`,
+		)`,
+
+		//for beta-test
+		`CREATE TABLE IF NOT EXISTS testers(
+		id BIGINT PRIMARY KEY
+		)`,
 	}
 
 	indexes := []string{
@@ -115,12 +120,15 @@ func CreateTables(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_watch_session_live ON watch_session(live);`,
 
 		`CREATE INDEX IF NOT EXISTS idx_user_status_live ON user_status(live);`,
+
+		//for beta-test
+		`CREATE INDEX IF NOT EXISTS idx_testers ON testers(id);`,
 	}
 
 	for _, query := range tables {
 		_, err := db.ExecContext(ctx, query)
 		if err != nil {
-			return fmt.Errorf("failed to create users table: %w", err)
+			return fmt.Errorf("failed to create table: %w", err)
 		}
 	}
 

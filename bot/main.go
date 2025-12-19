@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/N1ktarchik/Wishlist_bot/database"
+	inter "github.com/N1ktarchik/Wishlist_bot/interaction"
 	tgbot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
 )
@@ -19,6 +20,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	inter.InitPassword()
 	bot.Debug = true
 
 	log.Printf("Authorized on account %s", bot.Self.UserName)

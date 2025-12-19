@@ -179,3 +179,21 @@ func SendBackMainMenuKeyboard(bot *tgbot.BotAPI, chatid int64) {
 	sms.ReplyMarkup = keyboard
 	bot.Send(sms)
 }
+
+func SendTesterKeyboard(bot *tgbot.BotAPI, chatid int64) {
+	keyboard := tgbot.NewReplyKeyboard(
+
+		tgbot.NewKeyboardButtonRow(
+
+			tgbot.NewKeyboardButton("/start"),
+		),
+	)
+
+	keyboard.ResizeKeyboard = true
+	keyboard.OneTimeKeyboard = true
+	keyboard.Selective = true
+
+	sms := tgbot.NewMessage(chatid, "Обязательно напиши или нажми /start , что бы начать тестирование.")
+	sms.ReplyMarkup = keyboard
+	bot.Send(sms)
+}

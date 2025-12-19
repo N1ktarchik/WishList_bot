@@ -26,11 +26,23 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI, db *sql.DB) {
 		return
 	}
 
-	// if !inter.AdminRights(update.Message.Chat.ID, 667185380) { //что бы не мешали тестировать
-	// 	bot.Send(tgbot.NewMessage(update.Message.Chat.ID,
-	// 		"Воспользоваться ботом сейчас не получится.\n Я активно тестирую бота и вношу правки.\n Если хочешь получить доступ к бета-тестированию, заходи в тгк, и читай последний пост.\nhttps://t.me/n1k_go"))
-	// 	return
-	// }
+	//for beta test
+	if !database.ChekTesterRights(update.Message.Chat.ID, db) {
+
+		if update.Message != nil && update.Message.Text != "" && strings.HasPrefix(update.Message.Text, "/test") {
+			if inter.CheckPassword(update.Message.Text) {
+				database.SaveNewTester(update.Message.Chat.ID, db)
+				bot.Send(tgbot.NewMessage(update.Message.Chat.ID, "Доступ к тестировке разрешен!\nСпасибо за твою помощь в моем проекте!"))
+				keyboard.SendTesterKeyboard(bot, update.Message.Chat.ID)
+				return
+			}
+
+		}
+		bot.Send(tgbot.NewMessage(update.Message.Chat.ID,
+			"Воспользоваться ботом сейчас не получится.\n\nСейчас проходят тесты бота и вносятся правки.\n\nЕсли хочешь получить доступ к бета-тестированию, заходи в тгк, и читай последний пост.\n\nhttps://t.me/n1k_go"))
+		bot.Send(tgbot.NewMessage(update.Message.Chat.ID, "Если ты уже в команде тестировщиков, введи команду:\n\n/test password\n\nВместо password укажи пароль тестировщика"))
+		return
+	}
 
 	if update.Message != nil && update.Message.Text != "" {
 

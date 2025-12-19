@@ -24,11 +24,12 @@ func ButtonProcessing(update tgbot.Update, bot *tgbot.BotAPI, msg tgbot.Callback
 
 	defer bot.Request(callbackClose) //закрыли колл-бэк
 
-	// if !AdminRights(chatID, 667185380) { //что бы не мешали тестировать
-	// 	bot.Send(tgbot.NewMessage(chatID,
-	// 		"Воспользоваться ботом сейчас не получится.\n Я активно тестирую бота и вношу правки.\n Если хочешь получить доступ к бета-тестированию, заходи в тгк, и читай последний пост.\nhttps://t.me/n1k_go"))
-	// 	return
-	// }
+	if !database.ChekTesterRights(chatID, db) {
+		bot.Send(tgbot.NewMessage(chatID,
+			"Воспользоваться ботом сейчас не получится.\n\nСейчас проходят тесты бота и вносятся правки.\n\nЕсли хочешь получить доступ к бета-тестированию, заходи в тгк, и читай последний пост.\n\nhttps://t.me/n1k_go"))
+		bot.Send(tgbot.NewMessage(chatID, "Если ты уже в команде тестировщиков, введи команду:\n\n/test password\n\nВместо password укажи пароль тестировщика"))
+		return
+	}
 
 	switch data {
 	case "wishList":
@@ -236,14 +237,4 @@ func ScrollingWish(bot *tgbotapi.BotAPI, chatID int64, next bool, db *sql.DB) er
 	FormatWishMessage(session, db, bot)
 	return nil
 
-}
-
-func AdminRights(user int64, chatID ...int64) bool {
-	for i := range chatID {
-		if user == int64(i) {
-			return true
-		}
-	}
-
-	return false
 }
