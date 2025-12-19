@@ -14,6 +14,7 @@ type UserStatus struct {
 	WishName, Description, Url string
 	Price                      float64
 	NewWish                    bool
+	OneFieldToChanged          bool
 	live                       time.Time
 }
 
@@ -41,8 +42,8 @@ func CleanOverdueStatuses(db *sql.DB) error {
 
 func (s *UserStatus) Save(db *sql.DB) error {
 
-	query := `INSERT INTO user_status(id,step,name,description,link,price,new,live)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+	query := `INSERT INTO user_status(id,step,name,description,link,price,new,one_field_changed,live)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 			ON CONFLICT(id) DO UPDATE SET 
 				step = EXCLUDED.step ,
 				name = EXCLUDED.name ,
@@ -50,6 +51,7 @@ func (s *UserStatus) Save(db *sql.DB) error {
 				link = EXCLUDED.link , 
 				price = EXCLUDED.price ,
 				new = EXCLUDED.new,
+				one_field_changed = EXCLUDED.one_field_changed,
 				live = EXCLUDED.live`
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
@@ -62,7 +64,7 @@ func (s *UserStatus) Save(db *sql.DB) error {
 		dbPrice = s.Price
 	}
 
-	_, err := db.ExecContext(ctx, query, s.ChatID, s.Step, s.WishName, s.Description, s.Url, dbPrice, s.NewWish, s.live)
+	_, err := db.ExecContext(ctx, query, s.ChatID, s.Step, s.WishName, s.Description, s.Url, dbPrice, s.NewWish, s.OneFieldToChanged, s.live)
 
 	if err != nil {
 
@@ -131,6 +133,7 @@ func GetUserStatusByID(db *sql.DB, id int64) (*UserStatus, error) {
 		&status.Url,
 		&price,
 		&status.NewWish,
+		&status.OneFieldToChanged,
 		&status.live,
 	)
 
@@ -168,15 +171,17 @@ func (s *UserStatus) Reset() {
 	s.Url = ""
 	s.Price = 0
 	s.NewWish = true
+	s.OneFieldToChanged = false
 	s.UpdateLiveTime(10)
 }
 
-func CreateNewUserStatus(id int64, newWish bool) *UserStatus {
+func CreateNewUserStatus(id int64, newWish, oneField bool) *UserStatus {
 	return &UserStatus{
-		ChatID:  id,
-		Step:    1,
-		Price:   0,
-		NewWish: newWish,
-		live:    time.Now().Add(10 * time.Minute),
+		ChatID:            id,
+		Step:              1,
+		Price:             0,
+		NewWish:           newWish,
+		OneFieldToChanged: oneField,
+		live:              time.Now().Add(10 * time.Minute),
 	}
 }

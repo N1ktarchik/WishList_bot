@@ -174,7 +174,7 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI, db *sql.DB) {
 
 		case text == "✏️ Изменить желание":
 			session, err := database.GetWishSessonByID(chatID, db)
-			if err != nil {
+			if err != nil || session == nil {
 				log.Print(err)
 				keyboards.Menu(chatID, bot)
 				return
@@ -186,9 +186,18 @@ func CommandUpdate(update tgbot.Update, bot *tgbot.BotAPI, db *sql.DB) {
 				return
 			}
 
-			session.UpdateLiveTime(30)
+			session.UpdateLiveTime(10)
 
-			inter.HandleChangeWish(chatID, bot, db)
+			status, err = inter.CopyWishToStatus(chatID, session.WishID, db)
+			if err != nil {
+				bot.Send(tgbot.NewMessage(chatID, "Ошибка изменения!Попробуйте снова или обратитесь в поддержку."))
+			}
+
+			status.Save(db)
+			msg := tgbot.NewMessage(chatID, "Выбери команду на клавиаутре")
+			msg.ReplyMarkup = keyboard.SendConfirmationUpdateKeyboard(bot, chatID)
+			bot.Send(msg)
+			//inter.HandleChangeWish(chatID, bot, db)
 			return
 
 		case text == "➡️ Следующее желание":

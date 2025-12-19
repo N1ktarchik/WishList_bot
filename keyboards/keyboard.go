@@ -134,6 +134,41 @@ func SendConfirmationKeyboard(bot *tgbot.BotAPI, chatid int64) *tgbot.ReplyKeybo
 			tgbot.NewKeyboardButton("✅ Да! Сохранить."),
 			tgbot.NewKeyboardButton("❌ Нет! Начать заново."),
 		),
+
+		tgbot.NewKeyboardButtonRow(
+			tgbot.NewKeyboardButton("📝 Изменить название желания."),
+			tgbot.NewKeyboardButton("📋 Изменить описание желания."),
+		),
+
+		tgbot.NewKeyboardButtonRow(
+			tgbot.NewKeyboardButton("🔗 Изменить ссылку."),
+			tgbot.NewKeyboardButton("💰 Изменить цену желания"),
+		),
+	)
+
+	Keyboard.ResizeKeyboard = true
+	Keyboard.OneTimeKeyboard = true
+	Keyboard.Selective = true
+
+	return &Keyboard
+
+}
+
+func SendConfirmationUpdateKeyboard(bot *tgbot.BotAPI, chatid int64) *tgbot.ReplyKeyboardMarkup {
+	Keyboard := tgbot.NewReplyKeyboard(
+		tgbot.NewKeyboardButtonRow(
+			tgbot.NewKeyboardButton("🔄 Начать заполнение заново."),
+		),
+
+		tgbot.NewKeyboardButtonRow(
+			tgbot.NewKeyboardButton("📝 Изменить название желания."),
+			tgbot.NewKeyboardButton("📋 Изменить описание желания."),
+		),
+
+		tgbot.NewKeyboardButtonRow(
+			tgbot.NewKeyboardButton("🔗 Изменить ссылку."),
+			tgbot.NewKeyboardButton("💰 Изменить цену желания"),
+		),
 	)
 
 	Keyboard.ResizeKeyboard = true
